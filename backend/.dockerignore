@@ -1,0 +1,10 @@
+# Fichiers à NE JAMAIS copier dans l'image Docker
+# (Garde l'image légère, accélère le build et évite les fuites de secrets)
+node_modules
+dist
+.env
+.env.*
+*.log
+.git
+.gitignore
+README.md

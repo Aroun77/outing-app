@@ -1,0 +1,96 @@
+# =====================================================================
+# DOCKER COMPOSE — Orchestration locale de toute la stack OutingApp
+# Commande pour tout lancer : docker compose -f infra/docker-compose.yml up -d
+# =====================================================================
+
+services:
+  # -------------------------------------------------------------------
+  # 1. BASE DE DONNÉES GÉOSPATIALE : PostgreSQL 16 + PostGIS
+  # -------------------------------------------------------------------
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: outing_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-outing_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_local_password}
+      POSTGRES_DB: ${DB_NAME:-outing_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      # Volume persistant : les données survivent si le conteneur est détruit !
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - outing_network
+    healthcheck:
+      # Vérifie que PostgreSQL est réellement prêt à accepter des requêtes SQL
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------
+  # 2. CACHE & TEMPS RÉEL (PUB/SUB) : Redis 7
+  # -------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: outing_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - outing_network
+    healthcheck:
+      # Vérifie que Redis répond "PONG" quand on lui envoie "PING"
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # -------------------------------------------------------------------
+  # 3. BACKEND API & WEBSOCKETS : Node.js + Express + Socket.io
+  # -------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: outing_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Attention : dans un réseau Docker, on n'utilise PAS "localhost"
+      # pour parler aux autres conteneurs, mais le NOM du service !
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-outing_user}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme_local_password}
+      DB_NAME: ${DB_NAME:-outing_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      # Le backend attend que Postgres ET Redis soient "healthy" avant de démarrer
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - outing_network
+
+# =====================================================================
+# VOLUMES PERSISTANTS (Stockés sur l'hôte, en dehors des conteneurs)
+# =====================================================================
+volumes:
+  pgdata:
+  redisdata:
+
+# =====================================================================
+# RÉSEAU PRIVÉ ISOLÉ (DNS interne automatique entre les conteneurs)
+# =====================================================================
+networks:
+  outing_network:
+    driver: bridge

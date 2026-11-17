@@ -1,0 +1,41 @@
+# ==========================================
+# 🔒 SECRETS & VARIABLES D'ENVIRONNEMENT
+# (Règle d'or DevOps : Ne JAMAIS commiter de secrets dans Git !)
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# 📦 NODE.JS / BACKEND
+# ==========================================
+node_modules/
+dist/
+build/
+coverage/
+npm-debug.log*
+
+# ==========================================
+# 📱 FLUTTER / MOBILE
+# ==========================================
+mobile/.dart_tool/
+mobile/.packages
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+
+# ==========================================
+# ☁️ INFRASTRUCTURE & TERRAFORM
+# ==========================================
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# ==========================================
+# 💻 OS & IDE
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
